@@ -37,7 +37,7 @@ Mở terminal/command prompt tại thư mục dự án và chạy:
 ```bash
 python3  src/chatbot.py
 ```
-
+<br>
 ### 2. Tương tác với chatbot
 
 #### Tìm kiếm sách
