@@ -47,6 +47,7 @@ python3  src/chatbot.py
 **Tìm kiếm sách**
 
 ![Demo1](./images/search.png)
+
 ---
 #### Đặt hàng 
 - **Lệnh**: "Tôi muốn đặt sách [tên sách]"
@@ -55,6 +56,7 @@ python3  src/chatbot.py
 **Đặt hàng**
 
 ![Demo 2](./images/order.png)
+
 ---
 #### Xác nhận đơn hàng 
 - **Lệnh**: "đúng"
@@ -63,6 +65,7 @@ python3  src/chatbot.py
 **Xác nhận đơn hàng**
 
 ![Demo 3](./images/order_confirm.png)
+
 ---
 #### Tra cứu đơn hàng
 - **Lệnh**: "Tra cứu đơn hàng" 
@@ -71,6 +74,7 @@ python3  src/chatbot.py
 **Tra cứu đơn hàng**
 
 ![Demo 4](./images/order_status.png)
+
 ---
 ## Các lệnh và từ khóa
 
