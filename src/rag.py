@@ -47,7 +47,7 @@ class RAGSystem:
                       valid_similar_books.append(db_book)
               similar_books = valid_similar_books
           except Exception as e:
-              self.logger.warning(f"Vector search failed: {e}, fallback to text search")
+              self.logger.warning(f"Tìm kiếm vector không thành công: {e}, chuyển sang tìm kiếm văn bản")
               similar_books = []
           
           merged_results = self._merge_search_results(similar_books, text_search_results)
@@ -98,32 +98,6 @@ class RAGSystem:
       
       return sorted(results, key=lambda x: x.get('final_score', 0), reverse=True)
   
-  def get_context_for_llm(self, query, top_k = 3):
-      try:
-          relevant_books = self.retrieve_relevant_books(query, top_k)
-          
-          if not relevant_books:
-              return "Không tìm thấy sách nào phù hợp trong cửa hàng."
-          
-          context_parts = []
-          for i, book in enumerate(relevant_books, 1):
-              context_part = f"""
-Sách {i}:
-- Tên: {book['title']}
-- Tác giả: {book['author']}
-- Thể loại: {book['category']}
-- Giá: {book['price']:,} VND
-- Tồn kho: {book['stock']} quyển
-- Mô tả: {book.get('description', 'Không có mô tả')}
-"""
-              context_parts.append(context_part.strip())
-          
-          return "\n\n".join(context_parts)
-          
-      except Exception as e:
-          self.logger.error(f"Lỗi tạo context cho LLM: {e}")
-          return "Có lỗi xảy ra khi tìm kiếm thông tin sách."
-  
   def find_book_for_order(self, book_title):
       try:
           books = self.db.search_books(query=book_title)
@@ -149,54 +123,6 @@ Sách {i}:
       except Exception as e:
           self.logger.error(f"Lỗi tìm sách để đặt hàng: {e}")
           return None
-  
-  def find_book_by_reference(self, reference, last_books):
-      if not last_books:
-          return None
-          
-      reference_lower = reference.lower()
-      
-      # Mapping các từ tham chiếu
-      if any(word in reference_lower for word in ['này', 'đó', 'kia', 'trên', 'đầu tiên', 'đầu', 'first']):
-          return last_books[0]
-      elif any(word in reference_lower for word in ['thứ hai', 'thứ 2', 'second', 'hai']):
-          return last_books[1] if len(last_books) > 1 else None
-      elif any(word in reference_lower for word in ['thứ ba', 'thứ 3', 'third', 'ba']):
-          return last_books[2] if len(last_books) > 2 else None
-      elif any(word in reference_lower for word in ['cuối', 'last', 'cuối cùng']):
-          return last_books[-1]
-      
-      return None
-  
-  def get_books_by_category(self, category):
-      try:
-          return self.db.search_books(category=category)
-      except Exception as e:
-          self.logger.error(f"Lỗi lấy sách theo thể loại: {e}")
-          return []
-  
-  def get_popular_books(self, limit = 5):
-      try:
-          all_books = self.db.search_books()
-          popular = sorted(all_books, key=lambda x: x.get('stock', 0), reverse=True)
-          return popular[:limit]
-      except Exception as e:
-          self.logger.error(f"Lỗi lấy sách phổ biến: {e}")
-          return []
-  
-  def get_all_books(self):
-      try:
-          return self.db.search_books()
-      except Exception as e:
-          self.logger.error(f"Lỗi lấy tất cả sách: {e}")
-          return []
-  
-  def refresh_embeddings(self):
-      try:
-          self._initialize_embeddings()
-          self.logger.info("Đã refresh embeddings thành công")
-      except Exception as e:
-          self.logger.error(f"Lỗi refresh embeddings: {e}")
   
   def get_statistics(self):
       try:

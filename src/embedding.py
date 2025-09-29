@@ -19,9 +19,9 @@ class EmbeddingManager:
 
         try:
             self.model = SentenceTransformer(self.model_name)
-            logger.info(f"Embedding model '{self.model_name}' loaded.")
+            logger.info(f"Embedding model '{self.model_name}' đã tải.")
         except Exception as e:
-            logger.error(f"Failed to load embedding model '{self.model_name}': {e}")
+            logger.error(f"Thất bại khi tải embedding model '{self.model_name}': {e}")
             self.model = None  
 
         self.chroma_client = chromadb.PersistentClient(path="data/chromadb")
@@ -30,16 +30,16 @@ class EmbeddingManager:
             metadata={"hnsw:space":"cosine"}
         )
 
-        logger.info(f"Embedding model: {self.model_name} is ready")
+        logger.info(f"Embedding model: {self.model_name} đã sẵn sàng")
 
     def create_book_embeddings(self, books):
-        logger.info("Creating embeddings for books...")
+        logger.info("Đang tạo embeddings cho sách...")
 
         try:
             self.chroma_client.delete_collection("books_collection")
-            logger.info("Old collection deleted.")
+            logger.info("Collection cũ đã xóa.")
         except Exception:
-            logger.info("No existing collection to delete.")
+            logger.info("Không tồn tại collection để xóa.")
 
         self.collection = self.chroma_client.get_or_create_collection(
             name="books_collection",
@@ -78,9 +78,9 @@ class EmbeddingManager:
                 metadatas=metadatas,
                 ids=ids
             )
-            logger.info(f"Created embeddings for {len(books)} books.")
+            logger.info(f"Đang tạo embeddings cho {len(books)} sách.")
         else:
-            logger.warning("No books provided, collection is empty.")
+            logger.warning("Không sách nào cung cấp, collection rỗng.")
 
     
     def search_similar_books(self, query, top_k = 5):
@@ -100,5 +100,3 @@ class EmbeddingManager:
         
         return similar_books
     
-    def get_embedding(self, text):
-        return self.model.encode([text])[0]

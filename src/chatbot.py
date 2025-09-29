@@ -38,7 +38,7 @@ class BookStoreChatbot:
                 "message": user_message
             })
             
-            intent_result = self._enhanced_intent_classification(user_message, session)
+            intent_result = self._intent_classification(user_message, session)
             session["intent"] = intent_result["intent"]
             
             if session.get("editing_fields"):
@@ -47,11 +47,11 @@ class BookStoreChatbot:
                 response = self._handle_order_confirmation(user_message, session_id)
             else:
                 if intent_result["intent"] == "SEARCH":
-                    response = self._handle_search_enhanced(user_message, intent_result, session_id)
+                    response = self._handle_search(user_message, intent_result, session_id)
                 elif intent_result["intent"] == "ORDER":
-                    response = self._handle_order_enhanced(user_message, intent_result, session_id)
+                    response = self._handle_order(user_message, intent_result, session_id)
                 elif intent_result["intent"] == "ORDER_STATUS":
-                    response = self._handle_order_status_enhanced(user_message, intent_result, session_id)
+                    response = self._handle_order_status(user_message, intent_result, session_id)
                 else:
                     response = self._handle_general(user_message, session_id)
             
@@ -66,7 +66,7 @@ class BookStoreChatbot:
             self.logger.error(f"Lỗi khi xử lý tin nhắn: {e}")
             return "Xin lỗi, có lỗi xảy ra. Bạn có thể thử lại không?"
     
-  def _enhanced_intent_classification(self, user_message, session):
+  def _intent_classification(self, user_message, session):
         context = {
             "last_books": session.get("last_books", []),
             "pending_order": session.get("pending_order"),
@@ -75,7 +75,7 @@ class BookStoreChatbot:
         
         return self.llm_handler.enhanced_intent_classification(user_message, context)
     
-  def _handle_search_enhanced(self, user_message, intent_result, session_id):
+  def _handle_search(self, user_message, intent_result, session_id):
         search_query = intent_result.get("extracted_info", {}).get("search_query", user_message)
         
         relevant_books = self.rag_system.retrieve_relevant_books(search_query)
@@ -87,7 +87,7 @@ class BookStoreChatbot:
         
         return self.llm_handler.generate_search_response(search_query, relevant_books)
     
-  def _handle_order_enhanced(self, user_message, intent_result, session_id):
+  def _handle_order(self, user_message, intent_result, session_id):
         session = self.conversation_state[session_id]
         extracted_info = intent_result.get("extracted_info", {})
         
@@ -113,7 +113,7 @@ class BookStoreChatbot:
         if referenced_book:
             return referenced_book
         
-        enhanced_info = self.llm_handler.extract_order_info_enhanced(user_message, session.get("last_books", []))
+        enhanced_info = self.llm_handler.extract_order_info(user_message, session.get("last_books", []))
         if enhanced_info.get("book_title"):
             book_info = self.rag_system.find_book_for_order(enhanced_info["book_title"])
             if book_info:
@@ -123,7 +123,7 @@ class BookStoreChatbot:
     
   def _create_order_info_enhanced(self, book_info, extracted_info, user_message):
         if not all([extracted_info.get('quantity'), extracted_info.get('customer_name')]):
-            enhanced_info = self.llm_handler.extract_order_info_enhanced(user_message)
+            enhanced_info = self.llm_handler.extract_order_info(user_message)
             extracted_info.update({k: v for k, v in enhanced_info.items() if v})
         
         return {
@@ -136,7 +136,7 @@ class BookStoreChatbot:
             'address': extracted_info.get('address')
         }
     
-  def _handle_order_status_enhanced(self, user_message, intent_result, session_id):
+  def _handle_order_status(self, user_message, intent_result, session_id):
         phone = intent_result.get("extracted_info", {}).get("phone")
         
         if not phone:
@@ -182,161 +182,6 @@ class BookStoreChatbot:
             return phone_match.group(1)
         
         return None
-  
-  def _classify_intent_simple(self, user_message, session):
-    message_lower = user_message.lower()
-    
-    clean_message = re.sub(r'\s+', '', user_message.strip())
-    
-    if re.fullmatch(r'(\+?[0-9]{10,12})', clean_message):
-        return "ORDER_STATUS"
-    
-    phone_patterns = [
-        r'sdt[:\s]*(\+?[0-9]{10,12})',
-        r'số[:\s]*(\+?[0-9]{10,12})', 
-        r'phone[:\s]*(\+?[0-9]{10,12})',
-        r'điện\s*thoại[:\s]*(\+?[0-9]{10,12})'
-    ]
-    
-    for pattern in phone_patterns:
-        if re.search(pattern, message_lower, re.IGNORECASE):
-            return "ORDER_STATUS"
-    
-    order_status_keywords = [
-        'trạng thái đơn hàng', 'tra cứu đơn hàng', 'đơn hàng của tôi', 
-        'kiểm tra đơn hàng', 'order status', 'track order'
-    ]
-    
-    if any(keyword in message_lower for keyword in order_status_keywords):
-        return "ORDER_STATUS"
-    
-    # Kiểm tra đặt hàng
-    order_keywords = ['đặt', 'mua', 'order', 'buy', 'muốn mua', 'cần mua', 'đặt hàng']
-    if any(keyword in message_lower for keyword in order_keywords):
-        return "ORDER"
-    
-    # Kiểm tra tìm kiếm
-    search_keywords = ['tìm', 'search', 'có sách', 'sách nào', 'recommend', 'gợi ý', 'tư vấn']
-    if any(keyword in message_lower for keyword in search_keywords):
-        return "SEARCH"
-    
-    return "GENERAL"
-  
-  def _handle_search(self, user_message, session_id):
-      try:
-          relevant_books = self.rag_system.retrieve_relevant_books(
-              user_message, 
-              top_k=config.SEARCH_TOP_K
-          )
-          
-          if not relevant_books:
-              return "Xin lỗi, tôi không tìm thấy sách nào phù hợp trong cửa hàng. Bạn có thể thử từ khóa khác không?"
-          
-          self.conversation_state[session_id]["last_books"] = relevant_books
-          
-          response = "**Tôi tìm thấy những cuốn sách sau:**\n\n"
-          
-          for i, book in enumerate(relevant_books, 1):
-              stock_status = "Còn hàng" if book['stock'] > 0 else "❌ Hết hàng"
-              response += f"""**{i}. {book['title']}**
-- Tác giả: {book['author']}
-- Thể loại: {book['category']}
-- Giá: {book['price']:,} VND
-- Tình trạng: {stock_status} ({book['stock']} quyển)
-- Mô tả: {book.get('description', 'Không có mô tả')[:100]}...
-
-"""
-          
-          response += "\nBạn có thể nói đặt hàng nếu muốn!"
-          
-          return response
-          
-      except Exception as e:
-          self.logger.error(f"Lỗi trong _handle_search: {e}")
-          return "Xin lỗi, có lỗi khi tìm kiếm sách. Bạn có thể thử lại không?"
-  
-  def _handle_order(self, user_message: str, session_id: str) -> str:
-      try:
-          session = self.conversation_state[session_id]
-          
-          referenced_book = self._extract_book_reference(user_message, session.get("last_books", []))
-          
-          if referenced_book:
-              return self._process_book_order(referenced_book, user_message, session_id)
-          else:
-              book_title = self._extract_book_title_from_order(user_message)
-              
-              if book_title:
-                  book_info = self.rag_system.find_book_for_order(book_title)
-                  
-                  if book_info:
-                      return self._process_book_order(book_info, user_message, session_id)
-                  else:
-                      return f"Xin lỗi, tôi không tìm thấy sách '{book_title}' trong cửa hàng. Bạn có thể tìm kiếm sách trước không?"
-              else:
-                  return "Bạn muốn đặt sách gì? Vui lòng cho tôi biết tên sách hoặc tìm kiếm sách trước nhé!"
-              
-      except Exception as e:
-          self.logger.error(f"Lỗi trong _handle_order: {e}")
-          return "Có lỗi khi xử lý đơn hàng. Vui lòng thử lại."
-  
-  def _handle_order_status(self, user_message, session_id):
-    try:
-        clean_message = re.sub(r'\s+', '', user_message.strip())
-        
-        if re.fullmatch(r'(\+?[0-9]{10,12})', clean_message):
-            phone = clean_message
-        else:
-            phone_match = re.search(r'(\+?[0-9]{10,12})', user_message)
-            if phone_match:
-                phone = phone_match.group(1)
-            else:
-                customer_info = self._extract_customer_info(user_message)
-                phone = customer_info.get('phone')
-        
-        if not phone:
-            return """
-**TRA CỨU ĐƠN HÀNG**
-
-Vui lòng cung cấp số điện thoại đã dùng khi đặt hàng.
-
-**Cách cung cấp:**
-"0123456789"
-"""
-        
-        print(f"Đang tra cứu đơn hàng với SĐT: {phone}")  # Debug
-        
-        orders = self.rag_system.db.get_orders_by_phone(phone)
-        
-        print(f"Tìm thấy {len(orders)} đơn hàng")  # Debug
-        
-        if not orders:
-            return f"Không tìm thấy đơn hàng nào cho số điện thoại **{phone}**."
-        
-        response = f"**ĐƠN HÀNG CỦA BẠN (SĐT: {phone}):**\n\n"
-        
-        for i, order in enumerate(orders, 1):
-            total_price = order['quantity'] * order['price_per_book']
-            
-            response += f"""
-        **Đơn hàng #{i}**
-        - Mã đơn: #{order['order_id']}
-        - Sách: {order['book_title']}
-        - Số lượng: {order['quantity']} quyển
-        - Đơn giá: {order['price_per_book']:,} VND
-        - Tổng tiền: {total_price:,} VND
-        - Tên: {order['customer_name']}
-        - SĐT: {order['phone']}
-        - Địa chỉ: {order['address']}
-        - Trạng thái: {order['status']}
-        - Ngày đặt: {order['created_at']}
-        ────────────────────
-        """
-        return response
-        
-    except Exception as e:
-        self.logger.error(f"Lỗi tra cứu đơn hàng: {e}")
-        return f"Có lỗi khi tra cứu đơn hàng: {e}"
     
   def _extract_book_reference(self, user_message, last_books):
     if not last_books:
